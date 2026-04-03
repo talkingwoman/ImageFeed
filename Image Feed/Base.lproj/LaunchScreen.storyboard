@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="m7S-PX-hQh">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="fbm-aV-r5H">
+            <objects>
+                <viewController id="m7S-PX-hQh" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="cmf-HK-x1y">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="splash_screen_logo" translatesAutoresizingMaskIntoConstraints="NO" id="lh2-7n-iKb">
+                                <rect key="frame" x="170.5" y="410" width="73" height="76"/>
+                            </imageView>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="lHa-zu-hYi"/>
+                        <color key="backgroundColor" name="YP Black"/>
+                        <constraints>
+                            <constraint firstItem="lh2-7n-iKb" firstAttribute="centerY" secondItem="cmf-HK-x1y" secondAttribute="centerY" id="HrV-t9-OtJ"/>
+                            <constraint firstItem="lh2-7n-iKb" firstAttribute="centerX" secondItem="cmf-HK-x1y" secondAttribute="centerX" id="dSN-ht-ORU"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="z7x-qt-Ra9" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="745" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="splash_screen_logo" width="73" height="75.5"/>
+        <namedColor name="YP Black">
+            <color red="0.10196078431372549" green="0.10588235294117647" blue="0.13333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>
