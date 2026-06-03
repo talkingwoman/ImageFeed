@@ -1,7 +1,279 @@
-//
-//  ProfileViewController.swift
-//  Image Feed
-//
-//  Created by VIctoria Soboleva on 04.04.2026.
-//
+import UIKit
 
+final class ProfileViewController: UIViewController {
+    
+    // MARK: - Properties
+    
+    private let service = ImagesListService.shared
+    
+    // MARK: - UI Elements
+    
+    private let avatarImageView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(named: "avatar"))
+        imageView.tintColor = .gray
+        imageView.layer.cornerRadius = 35
+        imageView.clipsToBounds = true
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+    
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Екатерина Новикова"
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 28, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let usernameLabel: UILabel = {
+        let label = UILabel()
+        label.text = "@ekaterina_nov"
+        label.textColor = UIColor(white: 0.65, alpha: 1.0)
+        label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let bioLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Hello, world!"
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let logoutButton: UIButton = {
+        let button = UIButton.systemButton(
+            with: UIImage(named: "logout_button")!,
+            target: nil,
+            action: nil
+        )
+        button.tintColor = UIColor(named: "YP Red")
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
+    private let favoritesCountLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = UIColor(white: 0.65, alpha: 1.0)
+        label.font = UIFont.systemFont(ofSize: 23, weight: .regular)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let emptyFavoritesLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Ничего ещё нет!"
+        label.textColor = .white
+        label.textAlignment = .center
+        label.font = UIFont.systemFont(ofSize: 23, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let favoritesTableView: UITableView = {
+        let tableView = UITableView()
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        return tableView
+    }()
+    
+    // MARK: - Computed Properties
+    
+    private var favoritePhotos: [Photo] {
+        service.photos.filter { $0.isLiked }
+    }
+    
+    // MARK: - Lifecycle
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = UIColor(named: "YP Black")
+        
+        setupProfileUI()
+        setupFavoritesUI()
+        updateFavoritesCount()
+        updateEmptyState()
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(onLikeChanged),
+            name: ImagesListService.didChangeLikeNotification,
+            object: nil
+        )
+    }
+    
+    // MARK: - Setup
+    
+    private func setupProfileUI() {
+        // Аватар
+        view.addSubview(avatarImageView)
+        NSLayoutConstraint.activate([
+            avatarImageView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            avatarImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 32),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 70),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 70)
+        ])
+        
+        // Кнопка выхода
+        logoutButton.addTarget(self, action: #selector(didTapButton), for: .touchUpInside)
+        view.addSubview(logoutButton)
+        NSLayoutConstraint.activate([
+            logoutButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            logoutButton.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
+            logoutButton.widthAnchor.constraint(equalToConstant: 44),
+            logoutButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        // Стек с именем, никнеймом и bio
+        let stackView = UIStackView(arrangedSubviews: [nameLabel, usernameLabel, bioLabel])
+        stackView.axis = .vertical
+        stackView.alignment = .leading
+        stackView.spacing = 8
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stackView)
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: avatarImageView.leadingAnchor),
+            stackView.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20)
+        ])
+    }
+    
+    private func setupFavoritesUI() {
+        // Заголовок «Избранное» + счётчик
+        let titleLabel = UILabel()
+        titleLabel.text = "Избранное"
+        titleLabel.textColor = .white
+        titleLabel.font = UIFont.systemFont(ofSize: 23, weight: .bold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let headerStack = UIStackView(arrangedSubviews: [titleLabel, favoritesCountLabel])
+        headerStack.axis = .horizontal
+        headerStack.spacing = 8
+        headerStack.alignment = .center
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerStack)
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: bioLabel.bottomAnchor, constant: 24),
+            headerStack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16)
+        ])
+        
+        // Плейсхолдер «нет фото»
+        view.addSubview(emptyFavoritesLabel)
+        NSLayoutConstraint.activate([
+            emptyFavoritesLabel.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 80),
+            emptyFavoritesLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+        ])
+        
+        // Таблица избранного
+        favoritesTableView.dataSource = self
+        favoritesTableView.delegate = self
+        favoritesTableView.register(
+            ImagesListCell.self,
+            forCellReuseIdentifier: ImagesListCell.reuseIdentifier
+        )
+        view.addSubview(favoritesTableView)
+        NSLayoutConstraint.activate([
+            favoritesTableView.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 8),
+            favoritesTableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            favoritesTableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            favoritesTableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+    }
+    
+    // MARK: - Private Methods
+    
+    private func updateFavoritesCount() {
+        favoritesCountLabel.text = "\(favoritePhotos.count)"
+    }
+    
+    private func updateEmptyState() {
+        emptyFavoritesLabel.isHidden = !favoritePhotos.isEmpty
+        favoritesTableView.isHidden = favoritePhotos.isEmpty
+    }
+    
+    // MARK: - Actions
+    
+    @objc private func onLikeChanged() {
+        updateFavoritesCount()
+        favoritesTableView.reloadData()
+        updateEmptyState()
+    }
+    
+    @objc private func didTapButton() {
+        let alert = UIAlertController(
+            title: "Пока, пока!",
+            message: "Уверены, что хотите выйти?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Да", style: .destructive) { _ in })
+        alert.addAction(UIAlertAction(title: "Нет", style: .cancel))
+        present(alert, animated: true)
+    }
+}
+
+// MARK: - UITableViewDataSource
+
+extension ProfileViewController: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        favoritePhotos.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: ImagesListCell.reuseIdentifier,
+            for: indexPath
+        ) as? ImagesListCell else {
+            return UITableViewCell()
+        }
+        let photo = favoritePhotos[indexPath.row]
+        cell.configure(
+            image: UIImage(named: photo.name),
+            date: "",
+            isLiked: photo.isLiked
+        )
+        cell.delegate = self
+        return cell
+    }
+}
+
+// MARK: - UITableViewDelegate
+
+extension ProfileViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let photo = favoritePhotos[indexPath.row]
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+             guard let vc = storyboard.instantiateViewController(
+                 withIdentifier: "SingleImageViewController"
+             ) as? SingleImageViewController else { return }
+        vc.image = UIImage(named: photo.name)
+        vc.photoId = photo.id
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        let photo = favoritePhotos[indexPath.row]
+        guard let image = UIImage(named: photo.name) else { return 0 }
+        let insets = UIEdgeInsets(top: 4, left: 16, bottom: 4, right: 16)
+        let width = tableView.bounds.width - insets.left - insets.right
+        return image.size.height * (width / image.size.width) + insets.top + insets.bottom
+    }
+}
+
+// MARK: - ImagesListCellDelegate
+
+extension ProfileViewController: ImagesListCellDelegate {
+      func imageListCellDidTapLike(_ cell: ImagesListCell) {
+          guard let indexPath = favoritesTableView.indexPath(for: cell) else { return }
+          let photo = favoritePhotos[indexPath.row]
+
+          cell.setLikeButtonEnabled(false)
+          service.changeLike(photoId: photo.id, isLike: false) { success in
+              cell.setLikeButtonEnabled(true)
+          }
+      }
+  }
