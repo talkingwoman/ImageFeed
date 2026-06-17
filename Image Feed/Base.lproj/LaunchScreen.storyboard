@@ -3,8 +3,8 @@
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
-        <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -21,7 +21,7 @@
                             </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="lHa-zu-hYi"/>
-                        <color key="backgroundColor" name="YP Black"/>
+                        <color key="backgroundColor" systemColor="labelColor"/>
                         <constraints>
                             <constraint firstItem="lh2-7n-iKb" firstAttribute="centerY" secondItem="cmf-HK-x1y" secondAttribute="centerY" id="HrV-t9-OtJ"/>
                             <constraint firstItem="lh2-7n-iKb" firstAttribute="centerX" secondItem="cmf-HK-x1y" secondAttribute="centerX" id="dSN-ht-ORU"/>
@@ -35,8 +35,8 @@
     </scenes>
     <resources>
         <image name="splash_screen_logo" width="73" height="75.5"/>
-        <namedColor name="YP Black">
-            <color red="0.10196078431372549" green="0.10588235294117647" blue="0.13333333333333333" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
+        <systemColor name="labelColor">
+            <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
     </resources>
 </document>
