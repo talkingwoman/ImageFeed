@@ -11,20 +11,20 @@ final class ImagesListService {
     static let didChangeLikeNotification = Notification.Name("ImagesListServiceDidChangeLike")
 
     func changeLike(photoId: String, isLike: Bool, completion: @escaping (Bool) -> Void) {
-          DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
-              guard let self else { return }
-              let success = true
-              DispatchQueue.main.async {
-                  if success, let index = self.photos.firstIndex(where: { $0.id == photoId }) {
-                      self.photos[index].isLiked = isLike
-                      NotificationCenter.default.post(
-                          name: ImagesListService.didChangeLikeNotification,
-                          object: self,
-                          userInfo: ["photoId": photoId]
-                      )
-                  }
-                  completion(success)
-              }
-          }
-      }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            let success = true
+            DispatchQueue.main.async {
+                if success, let index = self.photos.firstIndex(where: { $0.id == photoId }) {
+                    self.photos[index].isLiked = isLike
+                    NotificationCenter.default.post(
+                        name: ImagesListService.didChangeLikeNotification,
+                        object: self,
+                        userInfo: ["photoId": photoId]
+                    )
+                }
+                completion(success)
+            }
+        }
+    }
 }

@@ -1,15 +1,18 @@
 import UIKit
+import Kingfisher
 
 final class ProfileViewController: UIViewController {
     
     // MARK: - Properties
     
+    private var profileImageServiceObserver: NSObjectProtocol?
     private let service = ImagesListService.shared
+    private let tokenStorage = OAuth2TokenStorage.shared
     
     // MARK: - UI Elements
     
     private let avatarImageView: UIImageView = {
-        let imageView = UIImageView(image: UIImage(named: "avatar"))
+        let imageView = UIImageView()
         imageView.tintColor = .gray
         imageView.layer.cornerRadius = 35
         imageView.clipsToBounds = true
@@ -19,7 +22,6 @@ final class ProfileViewController: UIViewController {
     
     private let nameLabel: UILabel = {
         let label = UILabel()
-        label.text = "Екатерина Новикова"
         label.textColor = .white
         label.font = UIFont.systemFont(ofSize: 28, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -28,7 +30,6 @@ final class ProfileViewController: UIViewController {
     
     private let usernameLabel: UILabel = {
         let label = UILabel()
-        label.text = "@ekaterina_nov"
         label.textColor = UIColor(white: 0.65, alpha: 1.0)
         label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -37,7 +38,6 @@ final class ProfileViewController: UIViewController {
     
     private let bioLabel: UILabel = {
         let label = UILabel()
-        label.text = "Hello, world!"
         label.textColor = .white
         label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -98,6 +98,19 @@ final class ProfileViewController: UIViewController {
         updateFavoritesCount()
         updateEmptyState()
         
+        profileImageServiceObserver = NotificationCenter.default.addObserver(
+            forName: ProfileImageService.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateAvatar()
+        }
+        updateAvatar()
+        
+        if let profile = ProfileService.shared.profile {
+            updateProfileDetails(with: profile)
+        }
+        
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(onLikeChanged),
@@ -106,10 +119,32 @@ final class ProfileViewController: UIViewController {
         )
     }
     
+    private func updateAvatar() {
+        guard
+            let profileImageURL = ProfileImageService.shared.avatarURL,
+            let url = URL(string: profileImageURL)
+        else { return }
+
+        let placeholderImage = UIImage(systemName: "person.circle.fill")?
+            .withTintColor(.lightGray, renderingMode: .alwaysOriginal)
+
+        let processor = RoundCornerImageProcessor(cornerRadius: 35)
+        avatarImageView.kf.indicatorType = .activity
+        avatarImageView.kf.setImage(
+            with: url,
+            placeholder: placeholderImage,
+            options: [
+                .processor(processor),
+                .scaleFactor(UIScreen.main.scale),
+                .cacheOriginalImage
+            ]
+        )
+    }
+    
+
     // MARK: - Setup
     
     private func setupProfileUI() {
-        // Аватар
         view.addSubview(avatarImageView)
         NSLayoutConstraint.activate([
             avatarImageView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
@@ -118,7 +153,6 @@ final class ProfileViewController: UIViewController {
             avatarImageView.heightAnchor.constraint(equalToConstant: 70)
         ])
         
-        // Кнопка выхода
         logoutButton.addTarget(self, action: #selector(didTapButton), for: .touchUpInside)
         view.addSubview(logoutButton)
         NSLayoutConstraint.activate([
@@ -128,7 +162,6 @@ final class ProfileViewController: UIViewController {
             logoutButton.heightAnchor.constraint(equalToConstant: 44)
         ])
         
-        // Стек с именем, никнеймом и bio
         let stackView = UIStackView(arrangedSubviews: [nameLabel, usernameLabel, bioLabel])
         stackView.axis = .vertical
         stackView.alignment = .leading
@@ -143,7 +176,6 @@ final class ProfileViewController: UIViewController {
     }
     
     private func setupFavoritesUI() {
-        // Заголовок «Избранное» + счётчик
         let titleLabel = UILabel()
         titleLabel.text = "Избранное"
         titleLabel.textColor = .white
@@ -161,14 +193,12 @@ final class ProfileViewController: UIViewController {
             headerStack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16)
         ])
         
-        // Плейсхолдер «нет фото»
         view.addSubview(emptyFavoritesLabel)
         NSLayoutConstraint.activate([
             emptyFavoritesLabel.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 80),
             emptyFavoritesLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
         
-        // Таблица избранного
         favoritesTableView.dataSource = self
         favoritesTableView.delegate = self
         favoritesTableView.register(
@@ -185,6 +215,16 @@ final class ProfileViewController: UIViewController {
     }
     
     // MARK: - Private Methods
+    
+    private func updateProfileDetails(with profile: Profile) {
+        nameLabel.text = profile.name.isEmpty
+        ? "Имя не указано"
+        : profile.name
+        usernameLabel.text = profile.loginName
+        bioLabel.text = (profile.bio?.isEmpty ?? true)
+        ? "Профиль не заполнен"
+        : profile.bio
+    }
     
     private func updateFavoritesCount() {
         favoritesCountLabel.text = "\(favoritePhotos.count)"
@@ -246,9 +286,9 @@ extension ProfileViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let photo = favoritePhotos[indexPath.row]
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
-             guard let vc = storyboard.instantiateViewController(
-                 withIdentifier: "SingleImageViewController"
-             ) as? SingleImageViewController else { return }
+        guard let vc = storyboard.instantiateViewController(
+            withIdentifier: "SingleImageViewController"
+        ) as? SingleImageViewController else { return }
         vc.image = UIImage(named: photo.name)
         vc.photoId = photo.id
         vc.modalPresentationStyle = .fullScreen
@@ -267,13 +307,13 @@ extension ProfileViewController: UITableViewDelegate {
 // MARK: - ImagesListCellDelegate
 
 extension ProfileViewController: ImagesListCellDelegate {
-      func imageListCellDidTapLike(_ cell: ImagesListCell) {
-          guard let indexPath = favoritesTableView.indexPath(for: cell) else { return }
-          let photo = favoritePhotos[indexPath.row]
-
-          cell.setLikeButtonEnabled(false)
-          service.changeLike(photoId: photo.id, isLike: false) { success in
-              cell.setLikeButtonEnabled(true)
-          }
-      }
-  }
+    func imageListCellDidTapLike(_ cell: ImagesListCell) {
+        guard let indexPath = favoritesTableView.indexPath(for: cell) else { return }
+        let photo = favoritePhotos[indexPath.row]
+        
+        cell.setLikeButtonEnabled(false)
+        service.changeLike(photoId: photo.id, isLike: !photo.isLiked) { success in
+            cell.setLikeButtonEnabled(true)
+        }
+    }
+}

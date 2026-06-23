@@ -42,16 +42,20 @@ final class AuthViewController: UIViewController {
 extension AuthViewController: WebViewViewControllerDelegate {
     func webViewViewController(_ vc: WebViewViewController, didAuthenticateWithCode code: String) {
         vc.dismiss(animated: true)
-        
+
+        UIBlockingProgressHUD.show()
+
         fetchOAuthToken(code) { [weak self] result in
+            UIBlockingProgressHUD.dismiss()
+
             guard let self = self else { return }
-            
+
             switch result {
             case .success:
                 self.delegate?.didAuthenticate(self)
-            case .failure:
-                // TODO [Sprint 11] Добавьте обработку ошибки
-                break
+            case .failure(let error):
+                print("[webViewViewController]: NetworkError - \(error.localizedDescription)")
+                self.showAuthErrorAlert()
             }
         }
     }
@@ -66,5 +70,18 @@ extension AuthViewController {
         oauth2Service.fetchOAuthToken(code) { result in
             completion(result)
         }
+    }
+}
+
+extension AuthViewController {
+    private func showAuthErrorAlert() {
+        let alertController = UIAlertController(
+            title: "Что-то пошло не так(",
+            message: "Не удалось войти в систему",
+            preferredStyle: .alert
+        )
+        let okAction = UIAlertAction(title: "Ок", style: .default, handler: nil)
+        alertController.addAction(okAction)
+        present(alertController, animated: true, completion: nil)
     }
 }
