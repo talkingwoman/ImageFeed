@@ -271,10 +271,11 @@ extension ProfileViewController: UITableViewDataSource {
         }
         let photo = favoritePhotos[indexPath.row]
         cell.configure(
-            image: UIImage(named: photo.name),
+            imageURL: URL(string: photo.thumbImageURL),
             date: "",
             isLiked: photo.isLiked
         )
+        
         cell.delegate = self
         return cell
     }
@@ -289,7 +290,7 @@ extension ProfileViewController: UITableViewDelegate {
         guard let vc = storyboard.instantiateViewController(
             withIdentifier: "SingleImageViewController"
         ) as? SingleImageViewController else { return }
-        vc.image = UIImage(named: photo.name)
+        vc.fullImageURL = URL(string: photo.largeImageURL)
         vc.photoId = photo.id
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
@@ -297,10 +298,10 @@ extension ProfileViewController: UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let photo = favoritePhotos[indexPath.row]
-        guard let image = UIImage(named: photo.name) else { return 0 }
         let insets = UIEdgeInsets(top: 4, left: 16, bottom: 4, right: 16)
         let width = tableView.bounds.width - insets.left - insets.right
-        return image.size.height * (width / image.size.width) + insets.top + insets.bottom
+        guard photo.size.width > 0 else { return 200 }
+        return photo.size.height * (width / photo.size.width) + insets.top + insets.bottom
     }
 }
 

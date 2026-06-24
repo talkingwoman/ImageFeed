@@ -1,13 +1,14 @@
 import UIKit
+import Kingfisher
 
 final class SingleImageViewController: UIViewController {
     
     // MARK: - Properties
     
-    var image: UIImage? {
+    var fullImageURL: URL? {
         didSet {
-            guard isViewLoaded, let image else { return }
-            setImage(image)
+            guard isViewLoaded else { return }
+            loadImage()
         }
     }
     var photoId: String?
@@ -38,11 +39,29 @@ final class SingleImageViewController: UIViewController {
         setupLikeButton()
         updateLikeButton()
         
-        guard let image else { return }
-        setImage(image)
+        loadImage()
     }
     
+    
     // MARK: - Private Methods
+    
+    private func loadImage() {
+             guard let fullImageURL else { return }
+
+             UIBlockingProgressHUD.show()
+             imageView.kf.setImage(with: fullImageURL) { [weak self] result in
+                 UIBlockingProgressHUD.dismiss()
+                 guard let self else { return }
+
+                 switch result {
+                 case .success(let value):
+                     self.imageView.frame.size = value.image.size
+                     self.rescaleAndCenterImageInScrollView(image: value.image)
+                 case .failure(let error):
+                     print("[SingleImageViewController.loadImage]: \(error.localizedDescription)")
+                 }
+             }
+         }
     
     private func updateLikeButton() {
         guard let photoId,
@@ -66,55 +85,53 @@ final class SingleImageViewController: UIViewController {
     }
     
     @objc private func didTapLikeButton() {
-        guard let photoId,
-              let photo = service.photos.first(where: { $0.id == photoId })
-        else { return }
-        
-        let newLikeState = !photo.isLiked
-        likeButton.isEnabled = false
-        service.changeLike(photoId: photoId, isLike: newLikeState) { [weak self] success in
-            guard let self else { return }
-            self.likeButton.isEnabled = true
-            if success {
-                self.updateLikeButton()
-            }
-        }
-    }
+             guard let photoId,
+                   let photo = service.photos.first(where: { $0.id == photoId })
+             else { return }
+
+             let newLikeState = !photo.isLiked
+             likeButton.isEnabled = false
+             service.changeLike(photoId: photoId, isLike: newLikeState) { [weak self] result in
+                 guard let self else { return }
+                 DispatchQueue.main.async {
+                     self.likeButton.isEnabled = true
+                     switch result {
+                     case .success:
+                         self.updateLikeButton()
+                     case .failure(let error):
+                         print("[SingleImageViewController.didTapLikeButton]: \(error.localizedDescription)")
+                     }
+                 }
+             }
+         }
     
     
     @IBAction private func didTapShareButton(_ sender: Any) {
-        
-        guard let image else { return }
-        let share = UIActivityViewController(
-            activityItems: [image],
-            applicationActivities: nil
-        )
-        present(share, animated: true, completion: nil)
-    }
-    
-    private func rescaleAndCenterImageInScrollView(image: UIImage) {
-        let minZoomScale = scrollView.minimumZoomScale
-        let maxZoomScale = scrollView.maximumZoomScale
-        view.layoutIfNeeded()
-        let visibleRectSize = scrollView.bounds.size
-        let imageSize = image.size
-        let hScale = visibleRectSize.width / imageSize.width
-        let vScale = visibleRectSize.height / imageSize.height
-        let scale = min(maxZoomScale, max(minZoomScale, min(hScale, vScale)))
-        scrollView.setZoomScale(scale, animated: false)
-        scrollView.layoutIfNeeded()
-        let newContentSize = scrollView.contentSize
-        let x = (newContentSize.width - visibleRectSize.width) / 2
-        let y = (newContentSize.height - visibleRectSize.height) / 2
-        scrollView.setContentOffset(CGPoint(x: x, y: y), animated: false)
-    }
-    
-    private func setImage(_ image: UIImage) {
-        imageView.image = image
-        imageView.frame.size = image.size
-        rescaleAndCenterImageInScrollView(image: image)
-    }
-}
+        guard let image = imageView.image else { return }
+                 let share = UIActivityViewController(
+                     activityItems: [image],
+                     applicationActivities: nil
+                 )
+                 present(share, animated: true, completion: nil)
+             }
+
+             private func rescaleAndCenterImageInScrollView(image: UIImage) {
+                 let minZoomScale = scrollView.minimumZoomScale
+                 let maxZoomScale = scrollView.maximumZoomScale
+                 view.layoutIfNeeded()
+                 let visibleRectSize = scrollView.bounds.size
+                 let imageSize = image.size
+                 let hScale = visibleRectSize.width / imageSize.width
+                 let vScale = visibleRectSize.height / imageSize.height
+                 let scale = min(maxZoomScale, max(minZoomScale, min(hScale, vScale)))
+                 scrollView.setZoomScale(scale, animated: false)
+                 scrollView.layoutIfNeeded()
+                 let newContentSize = scrollView.contentSize
+                 let x = (newContentSize.width - visibleRectSize.width) / 2
+                 let y = (newContentSize.height - visibleRectSize.height) / 2
+                 scrollView.setContentOffset(CGPoint(x: x, y: y), animated: false)
+             }
+         }
 
 // MARK: - UIScrollViewDelegate
 
