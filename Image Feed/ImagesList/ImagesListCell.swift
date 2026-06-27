@@ -5,6 +5,12 @@ protocol ImagesListCellDelegate: AnyObject {
     func imageListCellDidTapLike(_ cell: ImagesListCell)
 }
 
+enum FeedCellImageState {
+    case loading
+    case error
+    case finished(UIImage)
+}
+
 final class ImagesListCell: UITableViewCell {
     static let reuseIdentifier = "ImagesListCell"
     
@@ -13,11 +19,17 @@ final class ImagesListCell: UITableViewCell {
     @IBOutlet private var dateLabel: UILabel!
     
     weak var delegate: ImagesListCellDelegate?
+    private let gradientView = GradientView()
     
     // MARK: - Init
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+    }
+    
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        setupGradientView()
     }
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -51,6 +63,8 @@ final class ImagesListCell: UITableViewCell {
         contentView.addSubview(label)
         dateLabel = label
         
+        setupGradientView()
+        
         NSLayoutConstraint.activate([
             cellImage.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,
                                                constant: 16),
@@ -72,6 +86,18 @@ final class ImagesListCell: UITableViewCell {
         ])
     }
     
+    private func setupGradientView() {
+        guard gradientView.superview == nil else { return }   // защита от двойного добавления
+        gradientView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(gradientView)
+        NSLayoutConstraint.activate([
+            gradientView.leadingAnchor.constraint(equalTo: cellImage.leadingAnchor),
+            gradientView.trailingAnchor.constraint(equalTo: cellImage.trailingAnchor),
+            gradientView.topAnchor.constraint(equalTo: cellImage.topAnchor),
+            gradientView.bottomAnchor.constraint(equalTo: cellImage.bottomAnchor)
+        ])
+    }
+    
     // MARK: - Reuse
     
     override func prepareForReuse() {
@@ -79,6 +105,7 @@ final class ImagesListCell: UITableViewCell {
         
         cellImage.kf.cancelDownloadTask()
         cellImage.image = nil
+        gradientView.stopAnimating()
     }
     
     // MARK: - Configuration
@@ -87,14 +114,35 @@ final class ImagesListCell: UITableViewCell {
         likeButton.isEnabled = isEnabled
     }
     
+    private func setState(_ state: FeedCellImageState) {
+        switch state {
+        case .loading:
+            gradientView.isHidden = false
+            gradientView.startAnimating()
+        case .error:
+            gradientView.stopAnimating()
+            gradientView.isHidden = true
+            cellImage.image = UIImage(named: "photo_placeholder")
+        case .finished(let image):
+            gradientView.stopAnimating()
+            gradientView.isHidden = true
+            cellImage.image = image
+        }
+    }
+    
     func configure(imageURL: URL?, date: String, isLiked: Bool) {
-        cellImage.kf.indicatorType = .activity
-        cellImage.kf.setImage(
-            with: imageURL,
-            placeholder: UIImage(named: "photo_placeholder")
-        )
         dateLabel.text = date
         setIsLiked(isLiked)
+        
+        setState(.loading)
+        cellImage.kf.setImage(with: imageURL) { [weak self] result in
+            switch result {
+            case .success(let value):
+                self?.setState(.finished(value.image))
+            case .failure:
+                self?.setState(.error)
+            }
+        }
     }
     
     func setIsLiked(_ isLiked: Bool) {

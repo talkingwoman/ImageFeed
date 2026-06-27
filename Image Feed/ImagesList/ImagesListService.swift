@@ -50,6 +50,13 @@ final class ImagesListService {
         task.resume()
     }
     
+    func clean() {
+        task?.cancel()
+        task = nil
+        photos = []
+        lastLoadedPage = nil
+    }
+    
     // MARK: - Helpers
     
     private func makePhoto(from result: PhotoResult) -> Photo {
@@ -84,12 +91,14 @@ final class ImagesListService {
     
     // MARK: - Лайки
     
-    func changeLike(photoId: String, isLike: Bool, completion: @escaping (Result<Void,
-                                                                          Error>) -> Void) {
+    func changeLike(photoId: String, isLike: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let token = tokenStorage.token,
               let url = URL(string:
                                 "\(Constants.defaultBaseURLString)/photos/\(photoId)/like")
-        else { return }
+        else {
+            completion(.failure(NetworkError.invalidRequest))
+            return
+        }
         
         var request = URLRequest(url: url)
         request.httpMethod = isLike ? "POST" : "DELETE"
@@ -112,8 +121,16 @@ final class ImagesListService {
                     )
                     self.photos[index] = newPhoto
                 }
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: ImagesListService.didChangeLikeNotification,
+                        object: self,
+                        userInfo: ["photoId": photoId]
+                    )
+                }
                 completion(.success(()))
             case .failure(let error):
+                print("[changeLike]: \(error.localizedDescription)")
                 completion(.failure(error))
             }
         }
