@@ -3,47 +3,47 @@ import UIKit
 final class SplashViewController: UIViewController {
     private let profileService = ProfileService.shared
     private let storage = OAuth2TokenStorage.shared
-
+    
     private var imageView: UIImageView!
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupImageView()
     }
-
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-
+        
         if let token = storage.token {
             fetchProfile(token: token)
         } else {
             presentAuthViewController()
         }
     }
-
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         setNeedsStatusBarAppearanceUpdate()
     }
-
+    
     override var preferredStatusBarStyle: UIStatusBarStyle {
         .lightContent
     }
-
+    
     private func setupImageView() {
         view.backgroundColor = UIColor(named: "YP Black")
-
+        
         let logoImage = UIImage(named: "splash_screen_logo")
         imageView = UIImageView(image: logoImage)
         imageView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(imageView)
-
+        
         NSLayoutConstraint.activate([
             imageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             imageView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
-
+    
     private func presentAuthViewController() {
         let storyboard = UIStoryboard(name: "Main", bundle: .main)
         guard let authViewController = storyboard.instantiateViewController(
@@ -56,9 +56,12 @@ final class SplashViewController: UIViewController {
         authViewController.modalPresentationStyle = .fullScreen
         present(authViewController, animated: true)
     }
-
+    
     private func switchToTabBarController() {
-        guard let window = UIApplication.shared.windows.first else {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) else {
             assertionFailure("Invalid window configuration")
             return
         }
@@ -91,7 +94,7 @@ extension SplashViewController: AuthViewControllerDelegate {
             case .success(let profile):
                 ProfileImageService.shared.fetchProfileImageURL(username: profile.username) { _ in }
                 self.switchToTabBarController()
-
+                
             case .failure(let error):
                 print("[SplashViewController.fetchProfile]: NetworkError - \(error.localizedDescription)")
             }

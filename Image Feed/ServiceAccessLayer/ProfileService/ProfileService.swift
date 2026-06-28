@@ -12,7 +12,7 @@ struct ProfileResult: Codable {
     let firstName: String
     let lastName: String
     let bio: String?
-
+    
     private enum CodingKeys: String, CodingKey {
         case username
         case firstName = "first_name"
@@ -29,18 +29,18 @@ final class ProfileService {
     private var task: URLSessionTask?
     private let urlSession = URLSession.shared
     private(set) var profile: Profile?
-
+    
     func fetchProfile(_ token: String, completion: @escaping (Result<Profile, Error>) -> Void) {
         task?.cancel()
-
+        
         guard let request = makeProfileRequest(token: token) else {
             completion(.failure(NetworkError.invalidRequest))
             return
         }
-
+        
         let task = urlSession.objectTask(for: request) { [weak self] (result: Result<ProfileResult, Error>) in
             defer { self?.task = nil }
-
+            
             switch result {
             case .success(let profileResult):
                 let fullName = [profileResult.firstName, profileResult.lastName]
@@ -59,16 +59,22 @@ final class ProfileService {
                 completion(.failure(error))
             }
         }
-
+        
         self.task = task
         task.resume()
     }
-
+    
+    func clean() {
+        task?.cancel()
+        task = nil
+        profile = nil
+    }
+    
     private func makeProfileRequest(token: String) -> URLRequest? {
         guard let url = URL(string: "https://api.unsplash.com/me") else {
             return nil
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

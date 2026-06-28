@@ -8,6 +8,7 @@ final class ProfileViewController: UIViewController {
     private var profileImageServiceObserver: NSObjectProtocol?
     private let service = ImagesListService.shared
     private let tokenStorage = OAuth2TokenStorage.shared
+    private var gradientViews: [GradientView] = []
     
     // MARK: - UI Elements
     
@@ -98,17 +99,21 @@ final class ProfileViewController: UIViewController {
         updateFavoritesCount()
         updateEmptyState()
         
+        addGradients()
+        
         profileImageServiceObserver = NotificationCenter.default.addObserver(
             forName: ProfileImageService.didChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             self?.updateAvatar()
+            self?.removeGradients()
         }
         updateAvatar()
         
         if let profile = ProfileService.shared.profile {
             updateProfileDetails(with: profile)
+            removeGradients()
         }
         
         NotificationCenter.default.addObserver(
@@ -124,10 +129,10 @@ final class ProfileViewController: UIViewController {
             let profileImageURL = ProfileImageService.shared.avatarURL,
             let url = URL(string: profileImageURL)
         else { return }
-
+        
         let placeholderImage = UIImage(systemName: "person.circle.fill")?
             .withTintColor(.lightGray, renderingMode: .alwaysOriginal)
-
+        
         let processor = RoundCornerImageProcessor(cornerRadius: 35)
         avatarImageView.kf.indicatorType = .activity
         avatarImageView.kf.setImage(
@@ -141,7 +146,7 @@ final class ProfileViewController: UIViewController {
         )
     }
     
-
+    
     // MARK: - Setup
     
     private func setupProfileUI() {
@@ -235,6 +240,32 @@ final class ProfileViewController: UIViewController {
         favoritesTableView.isHidden = favoritePhotos.isEmpty
     }
     
+    private func addGradients() {
+        let targets: [UIView] = [avatarImageView, nameLabel, usernameLabel, bioLabel]
+        for target in targets {
+            let gradient = GradientView()
+            gradient.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(gradient)
+            NSLayoutConstraint.activate([
+                gradient.leadingAnchor.constraint(equalTo: target.leadingAnchor),
+                gradient.topAnchor.constraint(equalTo: target.topAnchor),
+                gradient.widthAnchor.constraint(equalToConstant: target === avatarImageView ? 70 : 150),
+                gradient.heightAnchor.constraint(equalToConstant: target === avatarImageView ? 70 : 20)
+            ])
+            gradient.startAnimating()
+            gradientViews.append(gradient)
+        }
+    }
+    
+    private func removeGradients() {
+        gradientViews.forEach {
+            $0.stopAnimating()
+            $0.removeFromSuperview()
+        }
+        gradientViews.removeAll()
+    }
+    
+    
     // MARK: - Actions
     
     @objc private func onLikeChanged() {
@@ -249,9 +280,27 @@ final class ProfileViewController: UIViewController {
             message: "Уверены, что хотите выйти?",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Да", style: .destructive) { _ in })
+        alert.addAction(UIAlertAction(title: "Да", style: .destructive) { [weak self] _ in
+            self?.logout()
+        })
         alert.addAction(UIAlertAction(title: "Нет", style: .cancel))
         present(alert, animated: true)
+    }
+    
+    private func logout() {
+        ProfileLogoutService.shared.logout()
+        switchToSplashScreen()
+    }
+    
+    private func switchToSplashScreen() {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) else {
+            assertionFailure("Invalid window configuration")
+            return
+        }
+        window.rootViewController = SplashViewController()
     }
 }
 
@@ -271,10 +320,11 @@ extension ProfileViewController: UITableViewDataSource {
         }
         let photo = favoritePhotos[indexPath.row]
         cell.configure(
-            image: UIImage(named: photo.name),
+            imageURL: URL(string: photo.thumbImageURL),
             date: "",
             isLiked: photo.isLiked
         )
+        
         cell.delegate = self
         return cell
     }
@@ -289,7 +339,7 @@ extension ProfileViewController: UITableViewDelegate {
         guard let vc = storyboard.instantiateViewController(
             withIdentifier: "SingleImageViewController"
         ) as? SingleImageViewController else { return }
-        vc.image = UIImage(named: photo.name)
+        vc.fullImageURL = URL(string: photo.largeImageURL)
         vc.photoId = photo.id
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
@@ -297,10 +347,10 @@ extension ProfileViewController: UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let photo = favoritePhotos[indexPath.row]
-        guard let image = UIImage(named: photo.name) else { return 0 }
         let insets = UIEdgeInsets(top: 4, left: 16, bottom: 4, right: 16)
         let width = tableView.bounds.width - insets.left - insets.right
-        return image.size.height * (width / image.size.width) + insets.top + insets.bottom
+        guard photo.size.width > 0 else { return 200 }
+        return photo.size.height * (width / photo.size.width) + insets.top + insets.bottom
     }
 }
 
