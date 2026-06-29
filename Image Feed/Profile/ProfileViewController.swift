@@ -1,14 +1,23 @@
 import UIKit
 import Kingfisher
 
-final class ProfileViewController: UIViewController {
+protocol ProfileViewControllerProtocol: AnyObject {
+    var presenter: ProfileViewPresenterProtocol? { get set }
+    func updateProfileDetails(name: String, login: String, bio: String)
+    func updateAvatar(url: URL?)
+    func updateFavorites(count: Int, isEmpty: Bool)
+}
+
+final class ProfileViewController: UIViewController & ProfileViewControllerProtocol {
     
     // MARK: - Properties
     
-    private var profileImageServiceObserver: NSObjectProtocol?
-    private let service = ImagesListService.shared
-    private let tokenStorage = OAuth2TokenStorage.shared
+    var presenter: ProfileViewPresenterProtocol?
     private var gradientViews: [GradientView] = []
+    
+    private var favoritePhotos: [Photo] {
+        presenter?.favoritePhotos ?? []
+    }
     
     // MARK: - UI Elements
     
@@ -46,12 +55,17 @@ final class ProfileViewController: UIViewController {
     }()
     
     private let logoutButton: UIButton = {
+        guard let image = UIImage(named: "logout_button") else {
+            assertionFailure("Image 'logout_button' not found")
+            return UIButton(type: .system)
+        }
         let button = UIButton.systemButton(
-            with: UIImage(named: "logout_button")!,
+            with: image,
             target: nil,
             action: nil
         )
         button.tintColor = UIColor(named: "YP Red")
+        button.accessibilityIdentifier = "logout button"
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
@@ -82,10 +96,11 @@ final class ProfileViewController: UIViewController {
         return tableView
     }()
     
-    // MARK: - Computed Properties
+    // MARK: - Configuration
     
-    private var favoritePhotos: [Photo] {
-        service.photos.filter { $0.isLiked }
+    func configure(_ presenter: ProfileViewPresenterProtocol) {
+        self.presenter = presenter
+        presenter.view = self
     }
     
     // MARK: - Lifecycle
@@ -96,39 +111,22 @@ final class ProfileViewController: UIViewController {
         
         setupProfileUI()
         setupFavoritesUI()
-        updateFavoritesCount()
-        updateEmptyState()
-        
         addGradients()
         
-        profileImageServiceObserver = NotificationCenter.default.addObserver(
-            forName: ProfileImageService.didChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateAvatar()
-            self?.removeGradients()
-        }
-        updateAvatar()
-        
-        if let profile = ProfileService.shared.profile {
-            updateProfileDetails(with: profile)
-            removeGradients()
-        }
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(onLikeChanged),
-            name: ImagesListService.didChangeLikeNotification,
-            object: nil
-        )
+        presenter?.viewDidLoad()
     }
     
-    private func updateAvatar() {
-        guard
-            let profileImageURL = ProfileImageService.shared.avatarURL,
-            let url = URL(string: profileImageURL)
-        else { return }
+    // MARK: - ProfileViewControllerProtocol
+    
+    func updateProfileDetails(name: String, login: String, bio: String) {
+        nameLabel.text = name
+        usernameLabel.text = login
+        bioLabel.text = bio
+        removeGradients()
+    }
+    
+    func updateAvatar(url: URL?) {
+        guard let url else { return }
         
         let placeholderImage = UIImage(systemName: "person.circle.fill")?
             .withTintColor(.lightGray, renderingMode: .alwaysOriginal)
@@ -144,8 +142,15 @@ final class ProfileViewController: UIViewController {
                 .cacheOriginalImage
             ]
         )
+        removeGradients()
     }
     
+    func updateFavorites(count: Int, isEmpty: Bool) {
+        favoritesCountLabel.text = "\(count)"
+        emptyFavoritesLabel.isHidden = !isEmpty
+        favoritesTableView.isHidden = isEmpty
+        favoritesTableView.reloadData()
+    }
     
     // MARK: - Setup
     
@@ -219,26 +224,7 @@ final class ProfileViewController: UIViewController {
         ])
     }
     
-    // MARK: - Private Methods
-    
-    private func updateProfileDetails(with profile: Profile) {
-        nameLabel.text = profile.name.isEmpty
-        ? "Имя не указано"
-        : profile.name
-        usernameLabel.text = profile.loginName
-        bioLabel.text = (profile.bio?.isEmpty ?? true)
-        ? "Профиль не заполнен"
-        : profile.bio
-    }
-    
-    private func updateFavoritesCount() {
-        favoritesCountLabel.text = "\(favoritePhotos.count)"
-    }
-    
-    private func updateEmptyState() {
-        emptyFavoritesLabel.isHidden = !favoritePhotos.isEmpty
-        favoritesTableView.isHidden = favoritePhotos.isEmpty
-    }
+    // MARK: - Gradients (skeleton)
     
     private func addGradients() {
         let targets: [UIView] = [avatarImageView, nameLabel, usernameLabel, bioLabel]
@@ -265,14 +251,7 @@ final class ProfileViewController: UIViewController {
         gradientViews.removeAll()
     }
     
-    
     // MARK: - Actions
-    
-    @objc private func onLikeChanged() {
-        updateFavoritesCount()
-        favoritesTableView.reloadData()
-        updateEmptyState()
-    }
     
     @objc private func didTapButton() {
         let alert = UIAlertController(
@@ -281,15 +260,11 @@ final class ProfileViewController: UIViewController {
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Да", style: .destructive) { [weak self] _ in
-            self?.logout()
+            self?.presenter?.logout()
+            self?.switchToSplashScreen()
         })
         alert.addAction(UIAlertAction(title: "Нет", style: .cancel))
         present(alert, animated: true)
-    }
-    
-    private func logout() {
-        ProfileLogoutService.shared.logout()
-        switchToSplashScreen()
     }
     
     private func switchToSplashScreen() {
@@ -310,7 +285,7 @@ extension ProfileViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         favoritePhotos.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(
             withIdentifier: ImagesListCell.reuseIdentifier,
@@ -324,7 +299,7 @@ extension ProfileViewController: UITableViewDataSource {
             date: "",
             isLiked: photo.isLiked
         )
-        
+
         cell.delegate = self
         return cell
     }
@@ -360,9 +335,9 @@ extension ProfileViewController: ImagesListCellDelegate {
     func imageListCellDidTapLike(_ cell: ImagesListCell) {
         guard let indexPath = favoritesTableView.indexPath(for: cell) else { return }
         let photo = favoritePhotos[indexPath.row]
-        
+
         cell.setLikeButtonEnabled(false)
-        service.changeLike(photoId: photo.id, isLike: !photo.isLiked) { success in
+        presenter?.changeLike(photoId: photo.id, isLike: !photo.isLiked) { _ in
             cell.setLikeButtonEnabled(true)
         }
     }
