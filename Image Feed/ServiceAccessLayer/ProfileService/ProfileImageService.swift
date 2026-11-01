@@ -4,12 +4,6 @@ struct ProfileImage: Codable {
     let small: String
     let medium: String
     let large: String
-    
-    private enum CodingKeys: String, CodingKey {
-        case small
-        case medium
-        case large
-    }
 }
 
 struct UserResult: Codable {
@@ -21,7 +15,7 @@ struct UserResult: Codable {
 }
 
 final class ProfileImageService {
-    static let didChangeNotification = Notification.Name(rawValue: "ProfileImageProviderDidChange")
+    static let didChangeNotification = Notification.Name("ProfileImageProviderDidChange")
     static let shared = ProfileImageService()
     private init() {}
     
